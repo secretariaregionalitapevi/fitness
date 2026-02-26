@@ -1,0 +1,2 @@
+﻿{"message":"Não foi possível processar seu cadastro agora. Tente novamente.","error":"Expected property name or '}' in JSON at position 1 (line 1 column 2)"}
+HTTP_STATUS:500
