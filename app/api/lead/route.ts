@@ -4,6 +4,8 @@ import { appendLeadToSheet } from "@/lib/sheets";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { leadSchema } from "@/lib/validators";
 
+export const runtime = "nodejs";
+
 function getClientIP(request: NextRequest) {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
@@ -74,16 +76,23 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[/api/lead] submit error:", error);
 
-    const isMissingEnv =
-      error instanceof Error && error.message.includes("Missing required environment");
+    const errMsg = error instanceof Error ? error.message : "";
+    const errCode =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : "";
+    const missingEnvMatch = errMsg.match(/Missing required environment variable: ([A-Z0-9_]+)/);
+    const missingEnvKey = missingEnvMatch?.[1];
 
-    const message = isMissingEnv
-      ? "Configuração do servidor incompleta. Verifique variáveis de ambiente."
-      : "Não foi possível processar seu cadastro agora. Tente novamente.";
+    const message = missingEnvKey
+      ? `Configuração do servidor incompleta. Variável ausente: ${missingEnvKey}.`
+      : errMsg.startsWith("Invalid GOOGLE_") || errMsg.includes("placeholder")
+        ? errMsg
+        : "Não foi possível processar seu cadastro agora. Tente novamente.";
 
     const details =
       process.env.NODE_ENV === "development" && error instanceof Error
-        ? { error: error.message }
+        ? { error: error.message, code: errCode || undefined }
         : undefined;
 
     return NextResponse.json({ message, ...details }, { status: 500 });
